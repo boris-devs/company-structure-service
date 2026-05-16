@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel, Field
 
 
@@ -15,12 +17,12 @@ class CreateDepartmentResponseSchema(BaseModel):
 class CreateEmployeeInDepartmentRequestSchema(BaseModel):
 	full_name: str
 	position: str
-	hire_date: str | None = None
+	hired_at: date | None = None
 
 
 class CreateEmployeeInDepartmentResponseSchema(BaseModel):
 	id: int
 	full_name: str
 	position: str
-	hire_date: str | None = None
+	hired_at: date | None = None
 	department_id: int
