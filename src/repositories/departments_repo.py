@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Optional
 
 from fastapi import HTTPException
@@ -5,13 +6,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import status
 
+from src.models.employees import Employees
 from src.models.departments import Departments
 
 
 class DepartmentsRepo:
 	def __init__(self, db: AsyncSession):
 		self.db = db
-
 
 	async def get_department_by_id(self, department_id: int) -> Optional[Departments]:
 		query = select(Departments).where(Departments.id == department_id)
@@ -38,7 +39,7 @@ class DepartmentsRepo:
 					status_code=status.HTTP_400_BAD_REQUEST,
 					detail=f"The parent department with ID {parent_id} does not exist."
 				)
-			
+
 		existing_dept = await self.get_by_name_and_parent(name, parent_id)
 		if existing_dept:
 			raise HTTPException(
@@ -50,3 +51,9 @@ class DepartmentsRepo:
 		self.db.add(new_dept)
 		await self.db.flush()
 		return new_dept
+
+	async def create_employee(self, full_name: str, position: str, department_id: int, hired_at: date | None = None):
+		new_employee = Employees(full_name=full_name, position=position, department_id=department_id, hired_at=hired_at)
+		self.db.add(new_employee)
+		await self.db.flush()
+		return new_employee
