@@ -14,5 +14,5 @@ class Employees(Base):
 	department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"))
 	full_name: Mapped[str] = mapped_column(String(255), nullable=False)
 	position: Mapped[str] = mapped_column(String(255), nullable=False)
-	hire_date: Mapped[Optional[str]] = mapped_column(String(255), nullable=False)
+	hired_at: Mapped[Optional[DateTime]] = mapped_column(DateTime, nullable=True)
 	created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
