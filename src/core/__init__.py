@@ -1,1 +1,1 @@
-from settings import settings
+from src.core.settings import settings
