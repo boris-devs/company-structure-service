@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Optional, List
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, aliased
 
@@ -58,9 +58,11 @@ class DepartmentsRepo:
 			options.append(current_load)
 
 		if include_employees:
-			options.append(selectinload(Departments.employees.order_by(Employees.full_name)))
+			options.append(selectinload(Departments.employees))
 
 		query = await self.get_department_by_id(department_id, options)
+		if query and include_employees:
+			query.employees.sort(key=lambda emp: emp.full_name)
 		return query
 
 	async def get_ancestor_ids(self, department_id: int) -> list[int]:
