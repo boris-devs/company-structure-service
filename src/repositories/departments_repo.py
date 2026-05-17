@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from typing import Optional, List
 
@@ -8,12 +9,15 @@ from sqlalchemy.orm import selectinload, aliased
 from src.models.employees import Employees
 from src.models.departments import Departments
 
+logger = logging.getLogger(__name__)
+
 
 class DepartmentsRepo:
 	def __init__(self, db: AsyncSession):
 		self.db = db
 
 	async def get_department_by_id(self, department_id: int, options: List | None = None) -> Optional[Departments]:
+		logger.debug("Fetching department by id", extra={"department_id": department_id, "with_options": bool(options)})
 		query = select(Departments).where(Departments.id == department_id)
 		if options:
 			query = query.options(*options)
@@ -25,6 +29,7 @@ class DepartmentsRepo:
 		Searches for a department by parent name and ID.
         Used for manual pre-validation of uniqueness.
 		"""
+		logger.debug("Checking department uniqueness", extra={"parent_department_id": department_id})
 		query = select(Departments).where(
 			Departments.name == name,
 			Departments.department_id == department_id
@@ -33,18 +38,26 @@ class DepartmentsRepo:
 		return result.scalar_one_or_none()
 
 	async def create_department(self, name: str, department_id: Optional[int] = None) -> Departments:
+		logger.debug("Adding department to session", extra={"parent_department_id": department_id})
 		new_dept = Departments(name=name, department_id=department_id)
 		self.db.add(new_dept)
 		await self.db.flush()
+		logger.info(
+			"Department flushed",
+			extra={"department_id": new_dept.id, "parent_department_id": department_id},
+		)
 		return new_dept
 
 	async def create_employee(self, full_name: str, position: str, department_id: int, hired_at: date | None = None):
+		logger.debug("Adding employee to session", extra={"department_id": department_id, "has_hired_at": hired_at is not None})
 		new_employee = Employees(full_name=full_name, position=position, department_id=department_id, hired_at=hired_at)
 		self.db.add(new_employee)
 		await self.db.flush()
+		logger.info("Employee flushed", extra={"employee_id": new_employee.id, "department_id": department_id})
 		return new_employee
 
 	async def get_employees_in_department(self, department_id: int):
+		logger.debug("Fetching employees in department", extra={"department_id": department_id})
 		employees = await self.db.execute(select(Employees).where(Employees.department_id == department_id))
 		return employees.scalars().all()
 
@@ -71,6 +84,14 @@ class DepartmentsRepo:
 		    and optionally its employee list if `include_employees` is specified.
 		:rtype: Optional[Departments]
 		"""
+		logger.debug(
+			"Fetching department tree",
+			extra={
+				"department_id": department_id,
+				"depth": depth,
+				"include_employees": include_employees,
+			},
+		)
 		options = []
 
 		if depth > 0:
@@ -98,6 +119,7 @@ class DepartmentsRepo:
 		:return: A list of ancestor department IDs in the hierarchy.
 		:rtype: list[int]
 		"""
+		logger.debug("Fetching department ancestors", extra={"department_id": department_id})
 		parent_cte = (
 			select(Departments.id, Departments.department_id)
 			.where(Departments.id == department_id)
@@ -129,12 +151,21 @@ class DepartmentsRepo:
 		:param to_id: The ID of the target department to which employees will be reassigned.
 		:return: None
 		"""
+		logger.info("Bulk reassigning employees", extra={"from_department_id": from_id, "to_department_id": to_id})
 		query = (
 			update(Employees)
 			.where(Employees.department_id == from_id)
 			.values(department_id=to_id)
 		)
-		await self.db.execute(query)
+		result = await self.db.execute(query)
+		logger.info(
+			"Employees reassigned",
+			extra={
+				"from_department_id": from_id,
+				"to_department_id": to_id,
+				"row_count": result.rowcount,
+			},
+		)
 
 	async def bulk_move_child_departments(self, from_parent_id: int, to_parent_id: int) -> None:
 		"""
@@ -150,12 +181,24 @@ class DepartmentsRepo:
 		:return: None
 		:rtype: None
 		"""
+		logger.info(
+			"Bulk moving child departments",
+			extra={"from_parent_department_id": from_parent_id, "to_parent_department_id": to_parent_id},
+		)
 		query = (
 			update(Departments)
 			.where(Departments.department_id == from_parent_id)
 			.values(department_id=to_parent_id)
 		)
-		await self.db.execute(query)
+		result = await self.db.execute(query)
+		logger.info(
+			"Child departments moved",
+			extra={
+				"from_parent_department_id": from_parent_id,
+				"to_parent_department_id": to_parent_id,
+				"row_count": result.rowcount,
+			},
+		)
 
 	async def delete_department(self, department: Departments) -> None:
 		"""
@@ -164,4 +207,5 @@ class DepartmentsRepo:
         when this deletion is committed, SQLAlchemy will automatically remove
         all associated employees and nested subdepartments (if cascade mode is enabled).
 		"""
+		logger.info("Deleting department from session", extra={"department_id": department.id})
 		await self.db.delete(department)

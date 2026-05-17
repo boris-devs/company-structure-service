@@ -1,19 +1,23 @@
+import logging
 from typing import Annotated, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi import Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import status
 
-from src.schemas.departments import (CreateEmployeeInDepartmentResponseSchema, RetrieveDepartmentResponseSchema,
-                                     DepartmentDetailResponseSchema, ReassignDepartmentRequestSchema)
-from src.repositories.departments_repo import DepartmentsRepo
-from src.schemas.departments import (CreateDepartmentResponseSchema, CreateDepartmentRequestSchema,
-                                     CreateEmployeeInDepartmentRequestSchema)
-from src.service.departments_service import DepartmentsService
 from src.db import get_db
+from src.repositories.departments_repo import DepartmentsRepo
+from src.schemas.departments import (
+	CreateDepartmentRequestSchema,
+	CreateDepartmentResponseSchema,
+	CreateEmployeeInDepartmentRequestSchema,
+	CreateEmployeeInDepartmentResponseSchema,
+	DepartmentDetailResponseSchema,
+	ReassignDepartmentRequestSchema,
+)
+from src.service.departments_service import DepartmentsService
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def department_service(db: AsyncSession = Depends(get_db)):
@@ -31,6 +35,7 @@ def department_service(db: AsyncSession = Depends(get_db)):
 )
 async def create_departments(data: CreateDepartmentRequestSchema,
                              service: DepartmentsService = Depends(department_service)):
+	logger.info("Create department endpoint called", extra={"parent_department_id": data.department_id})
 	return await service.create_department(data.name, data.department_id)
 
 
@@ -46,6 +51,7 @@ async def create_employee_in_department(
 		data: CreateEmployeeInDepartmentRequestSchema,
 		service: DepartmentsService = Depends(department_service)
 ):
+	logger.info("Create employee endpoint called", extra={"department_id": department_id})
 	return await service.create_employeer_in_department(department_id, data)
 
 
@@ -66,6 +72,10 @@ async def get_info_department(
 		include_employees: bool = Query(True, description="Whether to include employees in the response."),
 		service: DepartmentsService = Depends(department_service)
 ):
+	logger.info(
+		"Department details endpoint called",
+		extra={"department_id": department_id, "depth": depth, "include_employees": include_employees},
+	)
 	return await service.full_info_department(department_id, depth, include_employees)
 
 
@@ -81,6 +91,10 @@ async def reassign_department(
 		data: ReassignDepartmentRequestSchema,
 		service: DepartmentsService = Depends(department_service)
 ):
+	logger.info(
+		"Reassign department endpoint called",
+		extra={"department_id": department_id, "target_parent_department_id": data.parent_id, "renaming": data.name is not None},
+	)
 	return await service.reassign_department(department_id, data)
 
 
@@ -105,35 +119,27 @@ async def delete_department(
 		),
 		service: DepartmentsService = Depends(department_service)
 ):
-	"""
-	Deletes a department from the system based on the specified mode. If the mode is "reassign," 
-	employees in the department will be transferred to a specified department. 
-
-	:param department_id: Unique identifier of the department to delete.
-	:type department_id: int
-	:param mode: Mode of deletion. Can be "cascade" to remove all associated employees or 
-	             "reassign" to transfer employees to another department.
-	:type mode: Literal["cascade", "reassign"]
-	:param reassign_to_department_id: Identifier of the department to transfer employees to, required 
-	                                   if the mode is set to "reassign".
-	:type reassign_to_department_id: Optional[int]
-	:param service: Dependency-injected instance of DepartmentsService to handle department operations.
-	:type service: DepartmentsService
-	:return: No content response indicating successful deletion.
-	:rtype: None
-	"""
 	if mode == "reassign":
 		if reassign_to_department_id is None:
+			logger.warning("Delete department rejected: missing reassign target", extra={"department_id": department_id})
 			raise HTTPException(
 				status_code=status.HTTP_400_BAD_REQUEST,
-				detail="The ‘reassign_to_department_id’ parameter is required if the ‘reassign’ mode is selected."
+				detail="The 'reassign_to_department_id' parameter is required if the 'reassign' mode is selected."
 			)
 		if reassign_to_department_id == department_id:
+			logger.warning(
+				"Delete department rejected: reassign target is same department",
+				extra={"department_id": department_id, "reassign_to_department_id": reassign_to_department_id},
+			)
 			raise HTTPException(
 				status_code=status.HTTP_400_BAD_REQUEST,
 				detail="Employees cannot be transferred to the same department that is being eliminated."
 			)
 
+	logger.info(
+		"Delete department endpoint called",
+		extra={"department_id": department_id, "mode": mode, "reassign_to_department_id": reassign_to_department_id},
+	)
 	await service.delete_department(
 		department_id=department_id,
 		mode=mode,
