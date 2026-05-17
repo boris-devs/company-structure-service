@@ -1,8 +1,8 @@
 from datetime import date, datetime
 from typing import Optional, List
 
-from pydantic import BaseModel, Field, ConfigDict, model_validator
-from sqlalchemy import inspect
+from pydantic import BaseModel, Field, ConfigDict
+
 
 
 class CreateDepartmentRequestSchema(BaseModel):
@@ -73,3 +73,8 @@ class DepartmentDetailResponseSchema(BaseModel):
 	                                                       serialization_alias="children", default=[])
 
 	model_config = ConfigDict(from_attributes=True)
+
+
+class ReassignDepartmentRequestSchema(BaseModel):
+	name: str | None = None
+	parent_id: int | None = None

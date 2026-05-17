@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from fastapi import status
 
-from src.schemas.departments import CreateEmployeeInDepartmentRequestSchema
+from src.schemas.departments import CreateEmployeeInDepartmentRequestSchema, ReassignDepartmentRequestSchema
 from src.repositories.departments_repo import DepartmentsRepo
 
 
@@ -65,4 +65,42 @@ class DepartmentsService:
 		                                                                    include_employees=include_employees)
 		if not exist_department:
 			raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found.")
+		return exist_department
+
+	async def reassign_department(self, department_id: int, data: ReassignDepartmentRequestSchema):
+		if data.parent_id == department_id:
+			raise HTTPException(
+				status_code=status.HTTP_400_BAD_REQUEST,
+				detail="Cannot reassign a department to itself."
+			)
+
+		exist_department = await self.depart_repo.get_department_by_id(department_id)
+		if not exist_department:
+			raise HTTPException(
+				status_code=status.HTTP_404_NOT_FOUND,
+				detail="Department not found."
+			)
+
+		if data.parent_id is not None:
+			target_parent = await self.depart_repo.get_department_by_id(data.parent_id)
+			if not target_parent:
+				raise HTTPException(
+					status_code=status.HTTP_404_NOT_FOUND,
+					detail="Target parent department not found."
+				)
+
+			ancestor_ids = await self.depart_repo.get_ancestor_ids(data.parent_id)
+
+			if department_id in ancestor_ids:
+				raise HTTPException(
+					status_code=status.HTTP_400_BAD_REQUEST,
+					detail="Cannot reassign a department to one of its own sub-departments (cycling detected)."
+				)
+
+		exist_department.department_id = data.parent_id
+		if data.name is not None:
+			exist_department.name = data.name
+		await self.depart_repo.db.commit()
+		await self.depart_repo.db.refresh(exist_department)
+
 		return exist_department

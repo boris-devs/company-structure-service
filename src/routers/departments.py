@@ -5,7 +5,7 @@ from fastapi.params import Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.schemas.departments import (CreateEmployeeInDepartmentResponseSchema, RetrieveDepartmentResponseSchema,
-                                     DepartmentDetailResponseSchema)
+                                     DepartmentDetailResponseSchema, ReassignDepartmentRequestSchema)
 from src.repositories.departments_repo import DepartmentsRepo
 from src.schemas.departments import (CreateDepartmentResponseSchema, CreateDepartmentRequestSchema,
                                      CreateEmployeeInDepartmentRequestSchema)
@@ -44,3 +44,12 @@ async def get_info_department(
 		service: DepartmentsService = Depends(department_service)
 ):
 	return await service.full_info_department(department_id, depth, include_employees)
+
+
+@router.patch("/{department_id}/", response_model=DepartmentDetailResponseSchema)
+async def reassign_department(
+		department_id: int,
+		data: ReassignDepartmentRequestSchema,
+		service: DepartmentsService = Depends(department_service)
+):
+	return await service.reassign_department(department_id, data)

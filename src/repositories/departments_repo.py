@@ -3,7 +3,7 @@ from typing import Optional, List
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, aliased
 
 from src.models.employees import Employees
 from src.models.departments import Departments
@@ -62,3 +62,24 @@ class DepartmentsRepo:
 
 		query = await self.get_department_by_id(department_id, options)
 		return query
+
+	async def get_ancestor_ids(self, department_id: int) -> list[int]:
+
+		parent_cte = (
+			select(Departments.id, Departments.department_id)
+			.where(Departments.id == department_id)
+			.cte(name="parent_tree", recursive=True)
+		)
+
+		parent_alias = aliased(Departments, name="p")
+		cte_alias = aliased(parent_cte, name="c")
+
+		parent_cte = parent_cte.union_all(
+			select(parent_alias.id, parent_alias.department_id)
+			.join(cte_alias, parent_alias.id == cte_alias.c.department_id)
+		)
+
+		query = select(parent_cte.c.id)
+		result = await self.db.execute(query)
+
+		return list(result.scalars().all())
