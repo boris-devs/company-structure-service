@@ -5,4 +5,6 @@ app = FastAPI()
 
 prefix = "/api/v1"
 
-app.include_router(router=departments_router, prefix=f"{prefix}/departments", tags=["departments"])
+app.include_router(
+    router=departments_router, prefix=f"{prefix}/departments", tags=["departments"]
+)
