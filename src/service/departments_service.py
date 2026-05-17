@@ -104,3 +104,57 @@ class DepartmentsService:
 		await self.depart_repo.db.refresh(exist_department)
 
 		return exist_department
+
+	async def delete_department(self, department_id: int, mode: str, reassign_to_id: int | None):
+		"""
+		Deletes a department from the repository based on the given mode of operation.
+
+		Summary:
+		This coroutine handles the deletion of a department identified by its ID. The action performed depends on the mode
+		parameter, which can either trigger a cascade delete or reassign employees and child departments to another
+		department. The method ensures proper validation, including that the specified department exists and that,
+		in reassign mode, the target reassign department is valid. If the operation is successful, changes are committed
+		to the database.
+
+		:param department_id: The ID of the department to be deleted.
+		:type department_id: int
+		:param mode: Determines the mode of deletion. Accepted values are "cascade" for direct deletion and "reassign"
+		             for reassigning employees and child departments before deletion.
+		:type mode: str
+		:param reassign_to_id: The ID of the target department to which employees and child departments are reassigned.
+		                       Must be provided if mode is "reassign". Defaults to None.
+		:type reassign_to_id: int | None
+		:return: None
+		:rtype: None
+		:raises HTTPException: Raises an exception with a 404 status code if the specified department or target
+		                       reassign department is not found.
+		"""
+		target_dept = await self.depart_repo.get_department_by_id(department_id)
+		if not target_dept:
+			raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found.")
+
+		if mode == "cascade":
+			await self.depart_repo.delete_department(target_dept)
+
+		elif mode == "reassign":
+
+			new_home = await self.depart_repo.get_department_by_id(reassign_to_id)
+			if not new_home:
+				raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+				                    detail="Target reassign department not found.")
+
+
+			await self.depart_repo.bulk_reassign_employees(
+				from_id=department_id,
+				to_id=reassign_to_id
+			)
+
+
+			await self.depart_repo.bulk_move_child_departments(
+				from_parent_id=department_id,
+				to_parent_id=reassign_to_id
+			)
+
+			await self.depart_repo.delete_department(target_dept)
+
+		await self.depart_repo.db.commit()
