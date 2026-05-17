@@ -1,0 +1,71 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Version control
+.git/
+.gitignore
+
+# Environment files
+.env
+.env.*
+!.env.sample
+
+# Testing and coverage
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+coverage.xml
+*.cover
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+db.sqlite3
+db.sqlite3-journal
+
+# Documentation
+docs/_build/
+site/
+
+# Package manager
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Alembic
+alembic.ini
+
+# README and docs
+README.md
+*.md
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
