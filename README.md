@@ -26,7 +26,15 @@ LOG_LEVEL=INFO
 
 The values above are correct for Docker Compose, because the app connects to the `db` service inside the Docker network.
 
+# How to run
+Download the project locally from GitHub:
+
+```bash
+git clone https://github.com/boris-devs/company-structure-service.git
+```
+
 ## Run With Docker Compose
+
 
 This is the recommended way to run the project.
 
