@@ -1,10 +1,9 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import status
+from sqlalchemy.orm import selectinload
 
 from src.models.employees import Employees
 from src.models.departments import Departments
@@ -14,40 +13,27 @@ class DepartmentsRepo:
 	def __init__(self, db: AsyncSession):
 		self.db = db
 
-	async def get_department_by_id(self, department_id: int) -> Optional[Departments]:
+	async def get_department_by_id(self, department_id: int, options: List | None = None) -> Optional[Departments]:
 		query = select(Departments).where(Departments.id == department_id)
+		if options:
+			query = query.options(*options)
 		result = await self.db.execute(query)
 		return result.scalar_one_or_none()
 
-	async def get_by_name_and_parent(self, name: str, parent_id: Optional[int]) -> Optional[Departments]:
+	async def get_by_name_and_parent(self, name: str, department_id: Optional[int]) -> Optional[Departments]:
 		"""
 		Searches for a department by parent name and ID.
         Used for manual pre-validation of uniqueness.
 		"""
 		query = select(Departments).where(
 			Departments.name == name,
-			Departments.parent_id == parent_id
+			Departments.department_id == department_id
 		)
 		result = await self.db.execute(query)
 		return result.scalar_one_or_none()
 
-	async def create(self, name: str, parent_id: Optional[int] = None) -> Departments:
-		if parent_id is not None:
-			parent_exists = await self.get_department_by_id(parent_id)
-			if not parent_exists:
-				raise HTTPException(
-					status_code=status.HTTP_400_BAD_REQUEST,
-					detail=f"The parent department with ID {parent_id} does not exist."
-				)
-
-		existing_dept = await self.get_by_name_and_parent(name, parent_id)
-		if existing_dept:
-			raise HTTPException(
-				status_code=status.HTTP_409_CONFLICT,
-				detail=f"A department named ‘{name}’ already exists under this parent."
-			)
-
-		new_dept = Departments(name=name, parent_id=parent_id)
+	async def create_department(self, name: str, department_id: Optional[int] = None) -> Departments:
+		new_dept = Departments(name=name, department_id=department_id)
 		self.db.add(new_dept)
 		await self.db.flush()
 		return new_dept
@@ -57,3 +43,22 @@ class DepartmentsRepo:
 		self.db.add(new_employee)
 		await self.db.flush()
 		return new_employee
+
+	async def get_employees_in_department(self, department_id: int):
+		employees = await self.db.execute(select(Employees).where(Employees.department_id == department_id))
+		return employees.scalars().all()
+
+	async def tree_children_departments(self, department_id: int, depth: int, include_employees: bool):
+		options = []
+
+		if depth > 0:
+			current_load = selectinload(Departments.children)
+			for _ in range(depth - 1):
+				current_load = current_load.selectinload(Departments.children)
+			options.append(current_load)
+
+		if include_employees:
+			options.append(selectinload(Departments.employees.order_by(Employees.full_name)))
+
+		query = await self.get_department_by_id(department_id, options)
+		return query
