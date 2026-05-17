@@ -14,7 +14,7 @@ class Departments(Base):
 
 	id: Mapped[int] = mapped_column(primary_key=True)
 	name: Mapped[str] = mapped_column(String(200), nullable=False)
-	department_id: Mapped[Optional[int]] = mapped_column(ForeignKey("departments.id"), nullable=True)
+	department_id: Mapped[Optional[int]] = mapped_column(ForeignKey("departments.id", ondelete="CASCADE"), nullable=True)
 	created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 	parent: Mapped["Departments"] = relationship("Departments", remote_side=[id])
 
@@ -22,8 +22,15 @@ class Departments(Base):
 		"Departments",
 		back_populates="parent",
 		lazy="selectin",
+		cascade="all, delete-orphan",
+		passive_deletes=True
 	)
-	employees: Mapped[List["Employees"]] = relationship("Employees", back_populates="department")
+	employees: Mapped[List["Employees"]] = relationship(
+		"Employees",
+		back_populates="department",
+		cascade="all, delete-orphan",
+		passive_deletes=True
+	)
 	__table_args__ = (
 		UniqueConstraint("department_id", "name", name="uq_department_parent_name"),
 	)

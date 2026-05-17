@@ -14,7 +14,7 @@ class Employees(Base):
 	__tablename__ = "employees"
 
 	id: Mapped[int] = mapped_column(primary_key=True)
-	department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"))
+	department_id: Mapped[int] = mapped_column(ForeignKey("departments.id", ondelete="CASCADE"))
 	full_name: Mapped[str] = mapped_column(String(255), nullable=False)
 	position: Mapped[str] = mapped_column(String(255), nullable=False)
 	hired_at: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
