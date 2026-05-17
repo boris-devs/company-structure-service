@@ -27,3 +27,15 @@ class Departments(Base):
 	__table_args__ = (
 		UniqueConstraint("department_id", "name", name="uq_department_parent_name"),
 	)
+
+	@property
+	def safe_children(self) -> list["Departments"]:
+		if "children" in self.__dict__:
+			return self.children
+		return []
+
+	@property
+	def safe_employees(self) -> list:
+		if "employees" in self.__dict__:
+			return self.employees
+		return []
